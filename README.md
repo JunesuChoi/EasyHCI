@@ -1,32 +1,157 @@
-## EasyHCI  
-  메모리 오버클럭 후 안정성 테스트에 사용되는 "HCI Memtest" 프로그램을 한글화하고, 가장 편리하게 사용할 수 있도록 만든 런처입니다.  
-  
-  
-## 테스트 방법  
-  1. 프로그램을 실행하고 "설정" 탭을 클릭하고 목표치를 설정합니다. 
-     목표치 외에도 편한 기능과 다양한 설정이 있지만, 필수 요소는 아닙니다.
-  <img src="https://user-images.githubusercontent.com/74810045/159886082-3a8b84e8-1cce-461e-bdd0-82e333620239.png"  width="470" height="250">  
-    
-    
-  2. "테스트" 탭을 클릭하고 테스트 시작 버튼을 누릅니다.
-  <img src="https://user-images.githubusercontent.com/74810045/159885823-b1c0b38f-530d-448e-b92b-1a49247f4c6a.png"  width="470" height="290">  
-    
-    
-  3. "테스트" 탭에서 모니터링이 가능합니다. 테스트는 긴 시간이 걸리기 때문에, 잘 때나 외출하실 때 테스트를 돌려놓으시는 걸 권장합니다.  
-  <img src="https://user-images.githubusercontent.com/74810045/160308135-a5f8f3f5-ee60-4e0a-b587-ae18505185e9.jpg"  width="470" height="290">  
-    
-    
-    
-  ● 메모리 사용량이 95% 이상을 유지해야 더 확실한 테스트가 가능합니다. 테스트하는 동안 윈도우 가상메모리 설정을 사용 안 함으로 바꿔주시면 더욱 좋습니다.  
-    EasyHCI는 Memtest 최대 메모리 할당량 / CPU 쓰레드 수 / 여유 메모리 등을 자동 탐색하기 때문에 별도의 설정을 하지 않아도 됩니다.  
-    부가적으로 자동 캡쳐, 소리 알림, 테스트 정보 기록, 메모리 정리 등의 다양한 기능들도 존재합니다.  
-    "마지막 행동"과 "스크린샷" 옵션을 잘 설정하시면 주기적으로 화면이 캡쳐되고, 테스트가 끝날 때 로그가 작성된 뒤 컴퓨터가 자동 종료됩니다.  
-    
-    
-## 주의사항
-  ● HCI Memtest가 절대적으로 가장 좋은 테스트 프로그램은 아닙니다. 각 프로그램마다 테스트 방법이 많이 다릅니다. TM5, Prime95 등 많은 프로그램을 함께 이용하시는걸 권장합니다. 또한, 자원 활용량이 많은 게임을 해보시는 것도 방법입니다.  
-  ● 테스트는 장시간 안정적으로 통과했지만 실사용은 불가능한 경우가 있습니다. 보통은 램의 온도가 너무 높은 경우가 많습니다. 실제 게임을 하실 때에는 GPU의 열기가 위로 올라오므로, 램의 온도가 테스트 당시보다 더 상승합니다. 이를 감안하여, 높은 전압과 세팅의 오버클럭을 하신다면 꼭 램 스팟쿨링을 하시길 권장합니다.  
-    
-    
-## 사용한 외부 라이브러리  
-  ● [MaterialSkin](https://github.com/IgnaceMaes/MaterialSkin)
+# EasyHCI (OnePack fork)
+
+[한국어](#한국어) · [English](#english)
+
+메모리 오버클럭 안정화 검증에 쓰는 **HCI MemTest**를 한글화하고, 여러 개를 자동으로 띄워 굴리기 편하게 만든 런처입니다.
+[Manbocoon/EasyHCI](https://github.com/Manbocoon/EasyHCI)를 원작자(MIT, © 2022 kbum08) 표기를 유지한 채 이어받아 관리하는 포크입니다.
+
+---
+
+## 한국어
+
+### 이 포크가 원본과 다른 점
+
+| 항목 | 원본 | 이 포크 |
+|---|---|---|
+| 클린 클론 빌드 | 실패 (`app.config`, `FodyWeavers.xml` 누락) | 성공 |
+| `memtest.exe` | 동봉 + 실행 파일에 내장 후 추출 | **미동봉**. 이미 가지고 있는 사본을 찾아 씁니다 |
+| Fody / Costura | `packages/` 30개 파일 동봉, IL 위빙 | 제거. 위빙 없는 일반 빌드 |
+| `.gitignore`, CI, 릴리스 | 없음 | 있음 |
+| 버전 | 1.0.8D 고정 | 1.1.0 |
+
+`memtest.exe`를 뺀 이유는 라이선스입니다. HCI MemTest는 HCI Design의 독점 프리웨어이고,
+다른 프로그램 안에 넣어 배포하려면 허가가 필요합니다. 원본은 실행 파일 안에 넣고 첫 실행 때 꺼내 쓰는 방식이라,
+이 포크는 그 방식을 쓰지 않습니다. 자세한 내용은 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md)에 있습니다.
+
+### 설치
+
+1. [hcidesign.com/memtest](https://hcidesign.com/memtest/)에서 HCI MemTest를 받습니다. (무료 버전으로 충분합니다)
+2. 받은 `memtest.exe`를 `EasyHCI.exe` 옆에 둡니다.
+
+```
+EasyHCI.exe
+EasyHCI.exe.config
+MaterialSkin.dll
+memtest.exe          <- 여기에
+```
+
+다른 곳에 두고 쓰고 싶으면 `Resources\memtest_path.txt` 파일에 전체 경로 한 줄을 적으면 됩니다.
+이 파일이 있으면 아래 자동 탐색보다 항상 우선합니다.
+
+### memtest.exe를 찾는 순서
+
+1. `Resources\memtest_path.txt`에 적힌 경로
+2. `Resources\memtest.exe` (예전 버전이 쓰던 위치)
+3. `EasyHCI.exe`와 같은 폴더
+4. 위로 최대 6단계 올라가며 `hci-memtest\memtest.exe`
+5. 같은 단계에서 `tools` 폴더를 찾으면 그 안의 `hci`, `memtest`가 들어간 폴더만 골라 검색
+
+5번 덕분에 원팩 같은 포터블 묶음에 넣으면 별도 설정 없이 바로 찾습니다.
+못 찾으면 찾아본 경로 전체를 보여주는 안내 창이 뜹니다.
+
+### 사용법
+
+1. **설정** 탭에서 목표치를 정합니다. 필수는 아니고, 그대로 둬도 됩니다.
+2. **테스트** 탭에서 테스트 시작을 누릅니다.
+3. 진행 상황은 테스트 탭에서 볼 수 있습니다. 오래 걸리므로 잘 때나 외출할 때 돌리는 걸 권합니다.
+
+- 테스트 중 메모리 사용량이 95% 이상 유지되어야 결과를 믿을 수 있습니다.
+- 최대 할당량·CPU 쓰레드 수·여유 메모리는 자동으로 잡으므로 따로 계산하지 않아도 됩니다.
+- 자동 캡처, 소리 알림, 로그 기록, 메모리 정리, 종료 후 자동 전원 끄기까지 원본 기능은 그대로 있습니다.
+
+### 주의
+
+- HCI MemTest가 절대적인 기준은 아닙니다. TM5, Prime95 같은 도구와 함께 쓰는 편이 좋습니다.
+- 장시간 통과해도 실사용에서 문제가 생길 수 있습니다. 대개는 램 온도 문제이고, 게임 중에는 GPU 열기까지 더해집니다.
+  높은 전압으로 오버클럭했다면 램 스팟쿨링을 권합니다.
+- 이 프로그램은 관리자 권한으로 실행됩니다. HCI MemTest가 메모리를 크게 잡으려면 필요합니다.
+
+### 직접 빌드
+
+Visual Studio(또는 MSBuild)와 .NET Framework 4.6.2 타기팅 팩이 필요합니다.
+
+```powershell
+msbuild EasyHCI.sln /t:Rebuild /p:Configuration=Release
+```
+
+결과물은 `bin\Release`에 `EasyHCI.exe`, `EasyHCI.exe.config`, `MaterialSkin.dll` 세 개입니다.
+
+### 라이선스
+
+MIT. 원본 저작권 표기는 [LICENSE](LICENSE)에 그대로 남아 있습니다.
+
+---
+
+## English
+
+A Korean-localized launcher for **HCI MemTest** that automates the tedious part of memory
+overclock stability testing: picking a per-instance allocation, spawning the right number of
+instances, monitoring coverage, and shutting the machine down when the run finishes.
+
+This is a maintained fork of [Manbocoon/EasyHCI](https://github.com/Manbocoon/EasyHCI), keeping the
+original MIT notice (© 2022 kbum08).
+
+### What this fork changes
+
+| | Upstream | This fork |
+|---|---|---|
+| Clean-clone build | Fails (`app.config` and `FodyWeavers.xml` are missing) | Succeeds |
+| `memtest.exe` | Bundled and embedded into the executable, then extracted | **Not bundled.** Uses the copy you already have |
+| Fody / Costura | 30 vendored files plus IL weaving | Removed, no weaving |
+| `.gitignore`, CI, releases | None | Present |
+| Version | Pinned at 1.0.8D | 1.1.0 |
+
+`memtest.exe` was removed for licensing reasons. HCI MemTest is proprietary freeware owned by
+HCI Design, and shipping it inside another program needs the author's permission. Upstream embeds
+the binary and extracts it at first run; this fork does not. Details are in
+[THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md).
+
+### Install
+
+1. Download HCI MemTest from [hcidesign.com/memtest](https://hcidesign.com/memtest/). The free edition is enough.
+2. Put `memtest.exe` next to `EasyHCI.exe`.
+
+To keep it elsewhere, write the full path on one line into `Resources\memtest_path.txt`; that file
+always wins over the automatic search.
+
+### Search order for memtest.exe
+
+1. The path in `Resources\memtest_path.txt`
+2. `Resources\memtest.exe` (where older releases expected it)
+3. The folder holding `EasyHCI.exe`
+4. Up to six parent levels, looking for `hci-memtest\memtest.exe`
+5. At each level, a `tools` folder is searched only inside subfolders whose names contain `hci` or `memtest`
+
+Step 5 is what lets it work inside a portable pack with no configuration. When nothing is found, the
+dialog lists every location that was searched.
+
+### Usage
+
+1. Set your target on the **설정** (Settings) tab. Optional.
+2. Press start on the **테스트** (Test) tab.
+3. Watch progress there. Runs are long, so start them overnight.
+
+Memory usage should stay above 95 percent for a result worth trusting. Maximum allocation, CPU thread
+count and free memory are detected automatically. The original features are unchanged: automatic
+screenshots, sound alerts, logging, memory cleanup, and automatic shutdown when a run completes.
+
+### Warnings
+
+- HCI MemTest is not the only authority on stability. Pair it with TM5, Prime95 and real workloads.
+- A long passing run can still fail in daily use, usually because memory runs hotter in games once GPU
+  heat rises. Consider spot cooling if you run high voltage.
+- The app requests administrator rights, which HCI MemTest needs for large allocations.
+
+### Build
+
+```powershell
+msbuild EasyHCI.sln /t:Rebuild /p:Configuration=Release
+```
+
+Requires MSBuild and the .NET Framework 4.6.2 targeting pack. Output is `EasyHCI.exe`,
+`EasyHCI.exe.config` and `MaterialSkin.dll` in `bin\Release`.
+
+### License
+
+MIT. The original copyright notice is preserved in [LICENSE](LICENSE).
+

@@ -1,0 +1,25 @@
+# Build output
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# NuGet
+packages/
+
+# Fody weaver cache
+FodyWeavers.xsd
+
+# Runtime state written next to the launcher
+Resources/Settings.ini
+Resources/Process_Exceptions.ini
+Resources/memtest_path.txt
+Screenshots/
+EasyHCI_Log.txt
+
+# Local MemTest copies. The launcher uses the operator's own copy and never
+# commits it, because HCI MemTest is proprietary freeware.
+memtest.exe
+hci-memtest/
+

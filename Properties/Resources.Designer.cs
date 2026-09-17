@@ -70,16 +70,6 @@ namespace EasyHCI.Properties {
         }
         
         /// <summary>
-        ///   System.Byte[] 형식의 지역화된 리소스를 찾습니다.
-        /// </summary>
-        internal static byte[] memtest {
-            get {
-                object obj = ResourceManager.GetObject("memtest", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
-        
-        /// <summary>
         ///   # 예외처리할 프로세스를 한 줄에 하나씩 써주세요.
         ///# 대소문자를 구별하지 않으셔도 됩니다.
         ///# 윈도우 구동에 필요한 기본 프로세스들은 적지 않으셔도 예외처리됩니다.

@@ -66,6 +66,10 @@ namespace EasyHCI.Forms
 
         private string appPath = Application.StartupPath;
 
+        // HCI MemTest is not bundled with this build, so the path is resolved once
+        // per test run and reused by the worker thread.
+        private string memtestPath = null;
+
         private StringBuilder coverage_txt = new StringBuilder(null, 50), errorCount_txt = new StringBuilder(null, 50);
         private StringBuilder ErrMsg = new StringBuilder(null), finalRecord = new StringBuilder(null);
         #endregion
@@ -274,7 +278,7 @@ namespace EasyHCI.Forms
                     HCI[0].form = IntPtr.Zero;
                     mem_max -= 25;
 
-                    HCI[0].process = Process.Start(appPath + @"\Resources\memtest.exe");
+                    HCI[0].process = Process.Start(memtestPath);
 
                     while (welcome_form == IntPtr.Zero)
                     {
@@ -351,7 +355,7 @@ namespace EasyHCI.Forms
             
             // 편차 방지를 위해 HCI MEmtest 동시에 전부 실행
             for (int index=0; index<test_count; ++index)          
-                HCI[index].process = Process.Start(appPath + @"\Resources\memtest.exe");
+                HCI[index].process = Process.Start(memtestPath);
 
             Thread.Sleep(50);
             welcome_form = IntPtr.Zero; 
@@ -1043,12 +1047,28 @@ namespace EasyHCI.Forms
         {
             bool start_success = true;
 
-            // memtest.exe 존재유무 확인
-            if (!File.Exists(appPath + "\\Resources\\memtest.exe"))
-            {
-                Directory.CreateDirectory(appPath + "\\Resources");
+            // memtest.exe 위치 확인
+            // HCI MemTest는 HCI Design의 소유이며, 다른 프로그램 안에 포함해 배포하려면
+            // 허가가 필요합니다. 이 빌드는 memtest.exe를 동봉하거나 추출하지 않고, 사용자가
+            // 이미 가지고 있는 사본을 찾아서 사용합니다.
+            memtestPath = memtestLocator.Find(appPath);
 
-                File.WriteAllBytes(appPath + "\\Resources\\memtest.exe", Properties.Resources.memtest);
+            if (memtestPath == null)
+            {
+                MessageBox.Show(
+                    "memtest.exe를 찾을 수 없습니다." + "\r\n\r\n" +
+                    "HCI MemTest는 HCI Design에서 직접 받으셔야 합니다: https://hcidesign.com/memtest/" + "\r\n" +
+                    "받은 memtest.exe를 이 프로그램과 같은 폴더에 두거나, 아래 파일에 전체 경로를 적어주세요:" + "\r\n" +
+                    appPath + "\\Resources\\memtest_path.txt" + "\r\n\r\n" +
+                    "HCI MemTest is not bundled with this build. Download it from HCI Design, then place" + "\r\n" +
+                    "memtest.exe next to this launcher or write its full path into Resources\\memtest_path.txt." + "\r\n\r\n" +
+                    "찾아본 위치 / searched:" + "\r\n" + memtestLocator.DescribeSearch(appPath),
+                    "memtest.exe 없음 / not found", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                // 실패 시 버튼 상태를 되돌리는 기존 경로와 동일하게 처리합니다.
+                test.Enabled = true;
+                SetButtonState(test, false, "테스트");
+                return;
             }
 
             // 메모리 정리
