@@ -30,6 +30,15 @@ namespace EasyHCI
         /// <summary>MemTest reports the allocation in a ushort field, so cap there.</summary>
         internal const uint MaximumAllocationMB = 65000;
 
+        /// <summary>
+        /// The free edition refuses a single instance larger than this, so probing
+        /// above it only wastes attempts: each step down is one full MemTest start.
+        /// Measured against the current free build, where 2100 MB is accepted and
+        /// 2500 MB is refused. A smaller value costs nothing because the distribution
+        /// simply uses more instances to cover the same memory.
+        /// </summary>
+        internal const uint FreeEditionAllocationCeilingMB = 2048;
+
         internal static uint DetectLogicalProcessors()
         {
             int count = Environment.ProcessorCount;
@@ -46,8 +55,12 @@ namespace EasyHCI
             if (threads == 0) threads = 1;
             uint share = freeMemMB / threads;
             uint ceiling = share + 50;
-            if (ceiling < MinimumAllocationMB) return MinimumAllocationMB;
+
+            // Applied most restrictive first, so a huge share cannot slip past the
+            // free-edition limit through the ushort guard.
+            if (ceiling > FreeEditionAllocationCeilingMB) return FreeEditionAllocationCeilingMB;
             if (ceiling > MaximumAllocationMB) return MaximumAllocationMB;
+            if (ceiling < MinimumAllocationMB) return MinimumAllocationMB;
             return ceiling;
         }
 

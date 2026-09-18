@@ -285,8 +285,7 @@ namespace EasyHCI.Forms
             byte capHour = (byte)DateTime.Now.Hour, capMinute = (byte)DateTime.Now.Minute;
             ushort mem_max = 0;
             bool mem_max_found = false;
-            IntPtr welcome_form = IntPtr.Zero, welcome_button = IntPtr.Zero;
-            StringBuilder allocate_msg = new StringBuilder(null, 40);
+            IntPtr welcome_form = IntPtr.Zero;
    
 
 
@@ -304,60 +303,69 @@ namespace EasyHCI.Forms
                 while (!mem_max_found)
                 {
                     welcome_form = IntPtr.Zero; 
-                    welcome_button = IntPtr.Zero;
                     HCI[0].form = IntPtr.Zero;
                     mem_max -= 25;
 
                     HCI[0].process = Process.Start(memtestPath);
 
                     DateTime welcome_started = DateTime.UtcNow;
+                    // 첫 실행 환영 창과 본 창은 언어에 따라 제목이 다릅니다. 컨트롤 ID로
+                    // 구분하므로 한글판과 영문판에서 같은 코드가 동작합니다.
                     while (welcome_form == IntPtr.Zero)
                     {
+                        welcome_form = memtestUi.FindModalDialog((uint)HCI[0].process.Id);
+                        if (welcome_form != IntPtr.Zero) break;
+                        if (memtestUi.FindMainWindow((uint)HCI[0].process.Id) != IntPtr.Zero) break;
                         if ((DateTime.UtcNow - welcome_started).TotalMilliseconds > WindowWaitTimeoutMs)
-                            throw new InvalidOperationException("MemTest 시작 창이 나타나지 않았습니다. memtest.exe 경로와 창 표시 여부를 확인해 주십시오.");
-                        welcome_form = FindWindow("#32770", "어서오세요!");
-                        Thread.Sleep(3);
+                            throw new InvalidOperationException("MemTest 창이 나타나지 않았습니다. memtest.exe 경로와 창 표시 여부를 확인해 주십시오.");
+                        Thread.Sleep(10);
                     }
 
-                    welcome_button = FindWindowEx(welcome_form, IntPtr.Zero, "Button", "확인");
-                    SendMessage(welcome_button, CLICK, 0, 0);
+                    memtestUi.ClickDefaultButton(welcome_form);
 
                     DateTime form_started = DateTime.UtcNow;
                     while (HCI[0].form == IntPtr.Zero)
                     {
                         if ((DateTime.UtcNow - form_started).TotalMilliseconds > WindowWaitTimeoutMs)
                             throw new InvalidOperationException("MemTest 본 창을 찾지 못했습니다.");
-                        HCI[0].form = HCI[0].process.MainWindowHandle;
-                        ShowWindow(HCI[0].form, Sw_Hide);
-                        Thread.Sleep(3);
+                        HCI[0].form = memtestUi.FindMainWindow((uint)HCI[0].process.Id);
+                        if (HCI[0].form != IntPtr.Zero) ShowWindow(HCI[0].form, Sw_Hide);
+                        Thread.Sleep(10);
                     }
 
-                    HCI[0].start = FindWindowEx(HCI[0].form, IntPtr.Zero, "Button", "테스트 시작");
-                    HCI[0].exit = FindWindowEx(HCI[0].form, IntPtr.Zero, "Button", "테스트 중단");
-                    HCI[0].coverage = FindWindowEx(HCI[0].form, IntPtr.Zero, "Static", "무료 버전");
-                    HCI[0].ram = FindWindowEx(HCI[0].form, IntPtr.Zero, "Edit", null);
+                    HCI[0].start = memtestUi.ChildById(HCI[0].form, memtestUi.StartButtonId);
+                    HCI[0].exit = memtestUi.ChildById(HCI[0].form, memtestUi.StopButtonId);
+                    HCI[0].coverage = memtestUi.ChildById(HCI[0].form, memtestUi.StatusStaticId);
+                    HCI[0].ram = memtestUi.ChildById(HCI[0].form, memtestUi.RamEditId);
 
                     SetHwndText(HCI[0].ram, mem_max.ToString());
 
                     // 테스트 시작
                     PostMessage(HCI[0].start, CLICK, IntPtr.Zero, IntPtr.Zero);
-                    allocate_msg.Clear();
-                    allocate_msg.Append("무료 버전");
 
+                    // 상태 줄이 바뀌면 결과가 나온 것입니다. 비율(%)이 보이면 할당 성공,
+                    // MB만 있고 비율이 없으면 할당 실패입니다. 두 표시 모두 언어와 무관합니다.
                     DateTime allocate_started = DateTime.UtcNow;
-                    while (allocate_msg.ToString() == "무료 버전")
+                    while (true)
                     {
+                        string allocate_status = memtestUi.StatusText(HCI[0].form);
+
+                        if (memtestUi.StatusShowsRunning(allocate_status))
+                        {
+                            mem_max_found = true;
+                            break;
+                        }
+
+                        if (memtestUi.StatusShowsAllocationFailure(allocate_status))
+                        {
+                            mem_max_found = false;
+                            break;
+                        }
+
                         if ((DateTime.UtcNow - allocate_started).TotalMilliseconds > WindowWaitTimeoutMs)
-                            throw new InvalidOperationException("MemTest가 할당 결과를 보고하지 않았습니다. 무료 버전 창이 맞는지 확인해 주십시오.");
-                        GetWindowText(HCI[0].coverage, allocate_msg, 40);
-                        Thread.Sleep(3);
+                            throw new InvalidOperationException("MemTest가 할당 결과를 보고하지 않았습니다.");
+                        Thread.Sleep(20);
                     }
-
-                    if (allocate_msg.ToString() == "테스트 준비 중...")
-                        mem_max_found = true;
-
-                    else if (allocate_msg.ToString() == mem_max + " MB 할당 불가!") 
-                        mem_max_found = false;
 
                     HCI[0].process.Kill();
                     HCI[0].process.Dispose();
@@ -393,22 +401,24 @@ namespace EasyHCI.Forms
 
             Thread.Sleep(50);
             welcome_form = IntPtr.Zero; 
-            welcome_button = IntPtr.Zero;
 
             // 시작 창을 모두 제거할 때까지 루프
             ushort removed_count = 0;
-            while (removed_count < test_count || welcome_button != IntPtr.Zero)
+            DateTime dismiss_started = DateTime.UtcNow;
+            while (removed_count < test_count)
             {
-                welcome_form = FindWindow("#32770", "어서오세요!");
-                welcome_button = FindWindowEx(welcome_form, IntPtr.Zero, "Button", "확인");
-
-                if (welcome_button != IntPtr.Zero)
+                for (int index = 0; index < test_count; ++index)
                 {
-                    SendMessage(welcome_button, CLICK, 0, 0);
-                    ++removed_count;
+                    if (HCI[index].process == null) continue;
+
+                    IntPtr dialog = memtestUi.FindModalDialog((uint)HCI[index].process.Id);
+
+                    if (dialog != IntPtr.Zero && memtestUi.ClickDefaultButton(dialog)) ++removed_count;
                 }
                 
-                Thread.Sleep(5);
+                if ((DateTime.UtcNow - dismiss_started).TotalMilliseconds > WindowWaitTimeoutMs) break;
+
+                Thread.Sleep(20);
             }
 
 
@@ -421,10 +431,10 @@ namespace EasyHCI.Forms
             for (int index = 0; index < test_count; ++index)
             {
                 HCI[index].form = HCI[index].process.MainWindowHandle;
-                HCI[index].coverage = FindWindowEx(HCI[index].form, IntPtr.Zero, "Static", "무료 버전");
-                HCI[index].start = FindWindowEx(HCI[index].form, IntPtr.Zero, "Button", "테스트 시작");
-                HCI[index].exit = FindWindowEx(HCI[index].form, IntPtr.Zero, "Button", "테스트 종료");
-                HCI[index].ram = FindWindowEx(HCI[index].form, IntPtr.Zero, "Edit", null);
+                HCI[index].coverage = memtestUi.ChildById(HCI[index].form, memtestUi.StatusStaticId);
+                HCI[index].start = memtestUi.ChildById(HCI[index].form, memtestUi.StartButtonId);
+                HCI[index].exit = memtestUi.ChildById(HCI[index].form, memtestUi.StopButtonId);
+                HCI[index].ram = memtestUi.ChildById(HCI[index].form, memtestUi.RamEditId);
                 HCI[index].coverage_value = 0;
 
                 // 창 숨기기
@@ -456,18 +466,21 @@ namespace EasyHCI.Forms
 
             // HCI 멤테스트 창의 개수만큼 알림창 제거
             removed_count = 0;
-            while (removed_count < test_count || welcome_button != IntPtr.Zero)
+            DateTime start_dismiss_started = DateTime.UtcNow;
+            while (removed_count < test_count)
             {
-                welcome_form = FindWindow("#32770", "테스트 시작합니다.");
-                welcome_button = FindWindowEx(welcome_form, IntPtr.Zero, "Button", "확인");
-
-                if (welcome_button != IntPtr.Zero)
+                for (int index = 0; index < test_count; ++index)
                 {
-                    SendMessage(welcome_button, CLICK, 0, 0);
-                    ++removed_count;
+                    if (HCI[index].process == null) continue;
+
+                    IntPtr dialog = memtestUi.FindModalDialog((uint)HCI[index].process.Id);
+
+                    if (dialog != IntPtr.Zero && memtestUi.ClickDefaultButton(dialog)) ++removed_count;
                 }
 
-                Thread.Sleep(5);
+                if ((DateTime.UtcNow - start_dismiss_started).TotalMilliseconds > WindowWaitTimeoutMs) break;
+
+                Thread.Sleep(20);
             }
 
             // 프로그램을 최상단으로 가져오기
@@ -536,10 +549,12 @@ namespace EasyHCI.Forms
             // 테스트가 완전히 시작되기 전까지 잠시 대기, 대기가 끝나면 혹시라도 남아있을 알림창 제거
             Thread.Sleep(2000);
 
-            welcome_form = FindWindow("#32770", "테스트 시작합니다.");
-            welcome_button = FindWindowEx(welcome_form, IntPtr.Zero, "Button", "확인");
+            for (int index = 0; index < test_count; ++index)
+            {
+                if (HCI[index].process == null) continue;
 
-            SendMessage(welcome_button, CLICK, 0, 0);
+                memtestUi.ClickDefaultButton(memtestUi.FindModalDialog((uint)HCI[index].process.Id));
+            }
 
 
 
@@ -971,20 +986,28 @@ namespace EasyHCI.Forms
         // 테스트 결과를 기록하는 함수
         private void WriteTestLog()
         {
-            IntPtr ErrMsgHwnd = IntPtr.Zero, ErrChildHwnd;
+            IntPtr ErrMsgHwnd = IntPtr.Zero;
             ErrMsg.Clear(); finalRecord.Clear();
 
             if (error_occured)
             {
                 for (int i=0; i<20; ++i)
                 {
-                    ErrMsgHwnd = FindWindow("#32770", "멤테스트 오류");
+                    for (int index = 0; index < HCI.Length; ++index)
+                    {
+                        if (HCI[index].process == null) continue;
+
+                        IntPtr dialog = memtestUi.FindModalDialog((uint)HCI[index].process.Id);
+
+                        if (dialog != IntPtr.Zero) { ErrMsgHwnd = dialog; break; }
+                    }
+
+                    if (ErrMsgHwnd != IntPtr.Zero) break;
+
                     Thread.Sleep(100);
                 }
 
-                ErrChildHwnd = FindWindowEx(ErrMsgHwnd, IntPtr.Zero, "Static", null);
-
-                GetWindowText(ErrChildHwnd, ErrMsg, 250);
+                ErrMsg.Append(memtestUi.FirstLabelText(ErrMsgHwnd));
 
                 finalRecord.Append("!!! 오류 발생 !!!");
             }

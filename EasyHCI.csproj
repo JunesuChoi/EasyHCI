@@ -114,6 +114,7 @@
     <Compile Include="Functions\cleanMemory.cs" />
     <Compile Include="Functions\getRamInfo.cs" />
     <Compile Include="Functions\memtestLocator.cs" />
+    <Compile Include="Functions\memtestUi.cs" />
     <Compile Include="Functions\screenShot.cs" />
     <Compile Include="Functions\testPlanner.cs" />
     <Compile Include="Functions\settings_manager.cs" />
