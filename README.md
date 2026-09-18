@@ -17,7 +17,8 @@
 | `memtest.exe` | 동봉 + 실행 파일에 내장 후 추출 | **미동봉**. 이미 가지고 있는 사본을 찾아 씁니다 |
 | Fody / Costura | `packages/` 30개 파일 동봉, IL 위빙 | 제거. 위빙 없는 일반 빌드 |
 | `.gitignore`, CI, 릴리스 | 없음 | 있음 |
-| 버전 | 1.0.8D 고정 | 1.1.0 |
+| 코어·메모리 배분 | 레지스트리로 쓰레드 수를 세고, 탐색 상한이 3530MB로 고정된 채 아래로만 내려감 | 런타임 쓰레드 수를 쓰고, 쓰레드당 몫에서 탐색을 시작해 램을 끝까지 씀 |
+| 버전 | 1.0.8D 고정 | 1.2.0 |
 
 `memtest.exe`를 뺀 이유는 라이선스입니다. HCI MemTest는 HCI Design의 독점 프리웨어이고,
 다른 프로그램 안에 넣어 배포하려면 허가가 필요합니다. 원본은 실행 파일 안에 넣고 첫 실행 때 꺼내 쓰는 방식이라,
@@ -99,7 +100,8 @@ original MIT notice (© 2022 kbum08).
 | `memtest.exe` | Bundled and embedded into the executable, then extracted | **Not bundled.** Uses the copy you already have |
 | Fody / Costura | 30 vendored files plus IL weaving | Removed, no weaving |
 | `.gitignore`, CI, releases | None | Present |
-| Version | Pinned at 1.0.8D | 1.1.0 |
+| Version | Pinned at 1.0.8D | 1.2.0 |
+| Core and memory planning | Registry walk for the thread count; probe capped at 3530 MB and only ever lowered | Runtime thread count; probe starts from the per-thread share so the whole memory can be used |
 
 `memtest.exe` was removed for licensing reasons. HCI MemTest is proprietary freeware owned by
 HCI Design, and shipping it inside another program needs the author's permission. Upstream embeds
@@ -154,4 +156,3 @@ Requires MSBuild and the .NET Framework 4.6.2 targeting pack. Output is `EasyHCI
 ### License
 
 MIT. The original copyright notice is preserved in [LICENSE](LICENSE).
-

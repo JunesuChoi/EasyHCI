@@ -13,7 +13,6 @@ using System.Windows.Forms;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
-using Microsoft.Win32;
 
 using System.Management;
 using System.Runtime.InteropServices;
@@ -246,7 +245,42 @@ namespace EasyHCI.Forms
 
         private HCI_Memtest[] HCI = new HCI_Memtest[1];
         private uint CPUThreads = 0, screen_width = 0, screen_height = 0, test_count = 0, test_ammount = 0, error_index = 0;
+
+        // 창이 뜨기를 기다리는 루프에 상한을 둡니다. MemTest의 문구가 버전이나
+        // 언어에 따라 다르면 원래 코드는 무한정 기다렸습니다.
+        private const int WindowWaitTimeoutMs = 60000;
+
         private void StartTest()
+        {
+            // 워커 스레드에서 예외가 새어 나가면 프로세스가 그대로 죽습니다.
+            // 창 대기 시간 초과 같은 실패를 여기서 받아 UI로 돌려줍니다.
+            try
+            {
+                StartTestCore();
+            }
+            catch (Exception ex)
+            {
+                ReportTestFailure(ex.Message);
+            }
+        }
+
+        private void ReportTestFailure(string message)
+        {
+            KillMemtest();
+
+            try
+            {
+                BeginInvoke((Action)(() =>
+                {
+                    test.Enabled = true;
+                    SetButtonState(test, false, "테스트");
+                    MessageBox.Show("테스트를 시작하지 못했습니다.\r\n\r\n" + message, "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }));
+            }
+            catch (Exception) { }
+        }
+
+        private void StartTestCore()
         {
             byte capHour = (byte)DateTime.Now.Hour, capMinute = (byte)DateTime.Now.Minute;
             ushort mem_max = 0;
@@ -261,14 +295,10 @@ namespace EasyHCI.Forms
             if (!test_manual.Checked)
             {
                 // 시작하기 전에 여유 메모리와 CPU 쓰레드 수에 따라 구간을 나누어 작업량 줄이기
-                if ((freeMemMB / CPUThreads) <= 2000)
-                { mem_max = 2030; }
-                else if ((freeMemMB / CPUThreads) > 2000 && (freeMemMB / CPUThreads) < 2501)
-                { mem_max = 2530; }
-                else if ((freeMemMB / CPUThreads) > 2500 && (freeMemMB / CPUThreads) < 3001)
-                { mem_max = 3030; }
-                else
-                { mem_max = 3530; }
+                // 예전에는 3530MB를 상한으로 두고 아래로만 좁혀 내려갔습니다. 상한이
+                // 곧 천장이라 쓰레드당 메모리가 많은 시스템은 남는 램을 못 썼습니다.
+                // 이제 쓰레드당 몫을 기준으로 삼아 그 위에서부터 좁혀 내려갑니다.
+                mem_max = (ushort)testPlanner.ProbeCeiling(freeMemMB, CPUThreads);
 
                 // 임시 최대값에서 천천히 최대값을 25MB씩 줄여가면서 최적의 값을 찾기 전까지 루프
                 while (!mem_max_found)
@@ -280,8 +310,11 @@ namespace EasyHCI.Forms
 
                     HCI[0].process = Process.Start(memtestPath);
 
+                    DateTime welcome_started = DateTime.UtcNow;
                     while (welcome_form == IntPtr.Zero)
                     {
+                        if ((DateTime.UtcNow - welcome_started).TotalMilliseconds > WindowWaitTimeoutMs)
+                            throw new InvalidOperationException("MemTest 시작 창이 나타나지 않았습니다. memtest.exe 경로와 창 표시 여부를 확인해 주십시오.");
                         welcome_form = FindWindow("#32770", "어서오세요!");
                         Thread.Sleep(3);
                     }
@@ -289,8 +322,11 @@ namespace EasyHCI.Forms
                     welcome_button = FindWindowEx(welcome_form, IntPtr.Zero, "Button", "확인");
                     SendMessage(welcome_button, CLICK, 0, 0);
 
+                    DateTime form_started = DateTime.UtcNow;
                     while (HCI[0].form == IntPtr.Zero)
                     {
+                        if ((DateTime.UtcNow - form_started).TotalMilliseconds > WindowWaitTimeoutMs)
+                            throw new InvalidOperationException("MemTest 본 창을 찾지 못했습니다.");
                         HCI[0].form = HCI[0].process.MainWindowHandle;
                         ShowWindow(HCI[0].form, Sw_Hide);
                         Thread.Sleep(3);
@@ -308,8 +344,11 @@ namespace EasyHCI.Forms
                     allocate_msg.Clear();
                     allocate_msg.Append("무료 버전");
 
+                    DateTime allocate_started = DateTime.UtcNow;
                     while (allocate_msg.ToString() == "무료 버전")
                     {
+                        if ((DateTime.UtcNow - allocate_started).TotalMilliseconds > WindowWaitTimeoutMs)
+                            throw new InvalidOperationException("MemTest가 할당 결과를 보고하지 않았습니다. 무료 버전 창이 맞는지 확인해 주십시오.");
                         GetWindowText(HCI[0].coverage, allocate_msg, 40);
                         Thread.Sleep(3);
                     }
@@ -328,15 +367,10 @@ namespace EasyHCI.Forms
 
                 // mem_max = 프로세스 하나 당 가용 가능한 최대 메모리
                 // 탐색된 최대 메모리를 기반으로 테스트 정보 자동설정
-                double.TryParse(test_except.Text, out double test_freeAmmount);
-
-                test_ammount = (ushort)((freeMemMB - test_freeAmmount) / CPUThreads);
-                test_count = CPUThreads;
-                while (test_ammount > mem_max)
-                {
-                    ++test_count;
-                    test_ammount = (ushort)((freeMemMB - test_freeAmmount) / test_count);
-                }
+                uint planned_count, planned_amount;
+                testPlanner.Distribute(freeMemMB, testPlanner.ReserveFrom(test_except.Text), mem_max, CPUThreads, out planned_count, out planned_amount);
+                test_count = planned_count;
+                test_ammount = planned_amount;
             }
 
             // 수동 설정 시 값 그대로 복사
@@ -771,18 +805,10 @@ namespace EasyHCI.Forms
         // CPU의 쓰레드 개수(논리적 프로세서 개수)를 가져오는 함수
         private uint getCPUThreadCount()
         {
-            uint thread_count = 0;
-
-            for (int index = 0; index < 8192; ++index)
-            {
-                if (Registry.GetValue(@"HKEY_LOCAL_MACHINE\HARDWARE\DESCRIPTION\System\CentralProcessor\" + index, "FeatureSet", null) != null)
-                    ++thread_count;
-
-                else
-                    break;
-            }
-
-            return thread_count;
+            // 예전에는 레지스트리를 훑어 FeatureSet 값을 세었습니다. 키가 하나라도
+            // 비면 0을 돌려주고, 호출부가 그 0으로 나누면서 테스트 스레드가
+            // DivideByZeroException으로 죽었습니다. 런타임이 아는 값을 씁니다.
+            return testPlanner.DetectLogicalProcessors();
         }
 
         // 타 프로그램의 핸들에 텍스트 입력하는 함수
@@ -1541,16 +1567,14 @@ namespace EasyHCI.Forms
 
 
             // Calculate the manual test settings for your PC
-            uint test_count = CPUThreads, test_ammount = (ushort)((freeMemMB - 300) / CPUThreads);
+            // 미리보기도 실제 실행과 같은 계산을 써야 합니다. 예전에는 예약 300MB와
+            // 상한 2048MB를 따로 박아둬서 설정 탭의 숫자가 실제 동작과 어긋났습니다.
+            uint preview_threads = CPUThreads > 0 ? CPUThreads : testPlanner.DetectLogicalProcessors();
+            uint preview_count, preview_amount;
+            testPlanner.Distribute(freeMemMB, testPlanner.ReserveFrom(test_except.Text), testPlanner.ProbeCeiling(freeMemMB, preview_threads), preview_threads, out preview_count, out preview_amount);
 
-            while (test_ammount > 2048)
-            {
-                ++test_count;
-                test_ammount = (ushort)((freeMemMB - 300) / test_count);
-            }
-
-            test_manual_ammount.Text = test_ammount.ToString();
-            test_manual_count.Text = test_count.ToString();
+            test_manual_ammount.Text = preview_amount.ToString();
+            test_manual_count.Text = preview_count.ToString();
 
             dialog_open_directory.SelectedPath = appPath + @"\Screenshots";
             dialog_open_file.InitialDirectory = appPath + @"\Resources";
