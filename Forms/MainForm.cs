@@ -260,11 +260,11 @@ namespace EasyHCI.Forms
             }
             catch (Exception ex)
             {
-                ReportTestFailure(ex.Message);
+                ReportTestFailure(ex.Message, ex.StackTrace);
             }
         }
 
-        private void ReportTestFailure(string message)
+        private void ReportTestFailure(string message, string stackTrace)
         {
             KillMemtest();
 
@@ -274,7 +274,13 @@ namespace EasyHCI.Forms
                 {
                     test.Enabled = true;
                     SetButtonState(test, false, "테스트");
-                    MessageBox.Show("테스트를 시작하지 못했습니다.\r\n\r\n" + message, "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    // The trace is shown as well: a start failure that only says what
+                    // went wrong is not enough to act on, and this window is the only
+                    // place the operator sees it.
+                    string detail = message;
+                    if (!string.IsNullOrEmpty(stackTrace)) detail += "\r\n\r\n" + stackTrace;
+
+                    MessageBox.Show("테스트를 시작하지 못했습니다.\r\n\r\n" + detail, "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }));
             }
             catch (Exception) { }
@@ -585,55 +591,48 @@ namespace EasyHCI.Forms
 
                 for (int index = 0; index < test_count; ++index)
                 {
-                    coverage_txt.Clear(); 
+                    coverage_txt.Clear();
                     errorCount_txt.Clear();
 
                     // 하단 통과율/에러 바의 문자열을 읽어서 저장 후 테스트가 정상시작 되었는지 확인
                     GetWindowText(HCI[index].coverage, coverage_txt, 40);
-                    if (coverage_txt.ToString() == "메모리 할당됨" || coverage_txt.ToString() == null) 
-                        ++index;
 
-                    // 테스트가 정상시작 되어있는 상태라면
-                    else
+                    // 표시 문구는 언어마다 다릅니다. 원래는 한국어 문구의 위치를 잘라내서 읽었는데,
+                    // 영문 빌드에서는 그 위치가 없어 StringBuilder.Remove가 음수 인덱스를 받고
+                    // 예외를 던졌습니다. 이제 위치 대신 숫자를 읽습니다.
+                    double parsed_coverage;
+                    int parsed_errors;
+
+                    // 아직 비율을 보고하지 않은 인스턴스는 기록할 값이 없으므로 건너뜁니다.
+                    if (!memtestUi.TryParseStatus(coverage_txt.ToString(), out parsed_coverage, out parsed_errors))
+                        continue;
+
+                    // 리스트뷰의 현재 순번에 통과율 추가
+                    this.Invoke((MethodInvoker)delegate ()
                     {
-                        // 하단 바의 문자열에서 통과율과 에러 수치만 뽑아오기
-                        // errorCount_txt는 임시변수이며, 최종적으로 coverage_txt에 저장됨
-                        coverage_txt.Remove(0, 7);
-                        errorCount_txt.Append(coverage_txt.ToString());
+                        HCI[index].coverage_label.Text = "통과율: " + parsed_coverage + "%";
+                        HCI[index].error_label.Text = "오류: " + parsed_errors + "개";
+                    });
 
-                        errorCount_txt.Remove(errorCount_txt.ToString().IndexOf("개") + 1, 6);
-                        errorCount_txt.Remove(0, errorCount_txt.ToString().IndexOf(",") + 2);
-
-                        coverage_txt.Remove(coverage_txt.ToString().IndexOf("%"), 14);
-
-                        // 리스트뷰의 현재 순번에 통과율 추가
-                        this.Invoke((MethodInvoker)delegate ()
-                        {
-                            HCI[index].coverage_label.Text = "통과율: " + coverage_txt.ToString() + "%";
-                            HCI[index].error_label.Text = "오류: " + errorCount_txt.ToString();
-                        });
-
-                        // 오류가 발생한 경우 현재 순번에 기록
-                        if (errorCount_txt.ToString() != "0개")
-                        {
-                            error_occured = true;
-                            error_index = (uint)index + 1;
-                        }
-
-                        // 최소치, 평균치, 최대값, 편차 등을 알아내기 위해 값 저장
-                        double.TryParse(coverage_txt.ToString(), out HCI[index].coverage_value);
-                        coverage_avg += HCI[index].coverage_value;
-
-                        if (index == 0) 
-                            coverage_min = HCI[index].coverage_value; 
-
-                        if (coverage_min > HCI[index].coverage_value)                       
-                            coverage_min = HCI[index].coverage_value; 
-
-                        else if (coverage_max < HCI[index].coverage_value)                         
-                            coverage_max = HCI[index].coverage_value; 
-
+                    // 오류가 발생한 경우 현재 순번에 기록
+                    if (parsed_errors != 0)
+                    {
+                        error_occured = true;
+                        error_index = (uint)index + 1;
                     }
+
+                    // 최소치, 평균치, 최대값, 편차 등을 알아내기 위해 값 저장
+                    HCI[index].coverage_value = parsed_coverage;
+                    coverage_avg += HCI[index].coverage_value;
+
+                    if (index == 0)
+                        coverage_min = HCI[index].coverage_value;
+
+                    if (coverage_min > HCI[index].coverage_value)
+                        coverage_min = HCI[index].coverage_value;
+
+                    else if (coverage_max < HCI[index].coverage_value)
+                        coverage_max = HCI[index].coverage_value;
                 }
 
                 // 모든 HCI Memtest 프로세스의 모니터링이 끝나면 리스트뷰 재개 + 통과율, 편차 표시

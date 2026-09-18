@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace EasyHCI
 {
@@ -184,6 +186,41 @@ namespace EasyHCI
             if (string.IsNullOrEmpty(status)) return false;
             if (StatusShowsRunning(status)) return false;
             return status.IndexOf("MB", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+        /// <summary>
+        /// Reads the coverage percentage and the error count out of a status line.
+        ///
+        /// The original code chopped the line at fixed Korean offsets and searched
+        /// for the Korean character for "count" and the percent sign. Against the
+        /// English line the searches miss and StringBuilder.Remove is handed a
+        /// negative start index, which throws. Matching numbers rather than
+        /// positions works for any wording: the value before the percent sign is the
+        /// coverage, and the next integer is the error count.
+        /// </summary>
+        internal static bool TryParseStatus(string status, out double coverage, out int errors)
+        {
+            coverage = 0;
+            errors = 0;
+            if (string.IsNullOrEmpty(status)) return false;
+
+            Match percent = Regex.Match(status, @"([0-9]+(?:\.[0-9]+)?)\s*%");
+            if (!percent.Success) return false;
+
+            double.TryParse(percent.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out coverage);
+
+            int percentStart = percent.Index;
+            int percentEnd = percent.Index + percent.Length;
+
+            foreach (Match number in Regex.Matches(status, @"[0-9]+"))
+            {
+                // Skip the digits that make up the coverage figure itself.
+                if (number.Index >= percentStart && number.Index < percentEnd) continue;
+
+                int.TryParse(number.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out errors);
+                break;
+            }
+
+            return true;
         }
     }
 }

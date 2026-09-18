@@ -19,7 +19,8 @@
 | `.gitignore`, CI, 릴리스 | 없음 | 있음 |
 | 코어·메모리 배분 | 레지스트리로 쓰레드 수를 세고, 탐색 상한이 3530MB로 고정된 채 아래로만 내려감 | 런타임 쓰레드 수를 쓰고, 쓰레드당 몫에서 탐색을 시작해 램을 끝까지 씀 |
 | MemTest 창 제어 | 창과 버튼을 **한글 캡션으로** 찾음 (`어서오세요!`, `테스트 시작`, `무료 버전`) | **컨트롤 ID로** 찾음. 한글판·영문판 모두 동작 |
-| 버전 | 1.0.8D 고정 | 1.3.0 |
+| 통과율·오류 읽기 | 한국어 문구의 **글자 위치를 잘라내서** 파싱. 영문 빌드에서는 매번 예외 | 숫자를 읽어서 파싱. 문구와 무관 |
+| 버전 | 1.0.8D 고정 | 1.3.1 |
 
 `memtest.exe`를 뺀 이유는 라이선스입니다. HCI MemTest는 HCI Design의 독점 프리웨어이고,
 다른 프로그램 안에 넣어 배포하려면 허가가 필요합니다. 원본은 실행 파일 안에 넣고 첫 실행 때 꺼내 쓰는 방식이라,
@@ -101,9 +102,10 @@ original MIT notice (© 2022 kbum08).
 | `memtest.exe` | Bundled and embedded into the executable, then extracted | **Not bundled.** Uses the copy you already have |
 | Fody / Costura | 30 vendored files plus IL weaving | Removed, no weaving |
 | `.gitignore`, CI, releases | None | Present |
-| Version | Pinned at 1.0.8D | 1.3.0 |
+| Version | Pinned at 1.0.8D | 1.3.1 |
 | Core and memory planning | Registry walk for the thread count; probe capped at 3530 MB and only ever lowered | Runtime thread count; probe starts from the per-thread share so the whole memory can be used |
 | MemTest window control | Windows and buttons found by **Korean captions** (`어서오세요!`, `테스트 시작`, `무료 버전`) | Found by **control id**, so both the Korean and English builds work |
+| Coverage and error readout | Parsed by **chopping Korean text at fixed offsets**, which threw on every English status line | Parses the numbers, so the wording does not matter |
 
 `memtest.exe` was removed for licensing reasons. HCI MemTest is proprietary freeware owned by
 HCI Design, and shipping it inside another program needs the author's permission. Upstream embeds
